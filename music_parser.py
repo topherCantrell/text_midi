@@ -1,12 +1,21 @@
 import string
 
-from midi.MidiEvents import MidiEvent
-from midi import MidiTools
+from midi_events import MIDIEvent
+import midi_tools
+import midi_diss
 
-def pullDefines(lines):
+def pull_defines(lines):
+    """Pull the music defines from the list of lines.
+
+    Music 'defines' are lines of music defined outside of any track.
+    These begin with a label that ends in a percent sign. All the music
+    lines that follow (up to the next define or the first track) are 
+    extracted as a music subroutine that can be called later in the
+    music file.
+    """
     dfs = {}
     current = None
-    for x in xrange(len(lines)):
+    for x in range(len(lines)):
         line = lines[x]
         if line.endswith("%"):
             nm = line[0:-1]
@@ -20,10 +29,16 @@ def pullDefines(lines):
                     current.append(line)
     return dfs
 
-def pullTracks(lines):
+def pull_tracks(lines):
+    """Pull the music tracks from the list of lines.
+
+    Tracks are of the form "Track X:", where X is the track number. All the
+    music that follows the track-header (up to the next track or define) is
+    part of the track.
+    """
     tracks = {}
     current = None
-    for x in xrange(len(lines)):
+    for x in range(len(lines)):
         line = lines[x]
         if line.startswith("Track"):
             nm = int(line[6:-1])
@@ -37,7 +52,12 @@ def pullTracks(lines):
                     current.append(line)   
     return tracks 
 
-def combineUse(dat):
+def combine_use(dat):
+    """Combine 'using' lines.
+
+    Music that calls a defined routine can pass in parameters. These parameters
+    can span multiple lines. This routined collects them to single lines.
+    """
     ntr = []
     x = 0
     while x<len(dat):
@@ -51,11 +71,11 @@ def combineUse(dat):
         x=x+1
     return ntr
 
-def processUses(lines,dfs):    
+def process_uses(lines,dfs):    
     changed = True
     while(changed):
         changed = False        
-        for x in xrange(len(lines)):            
+        for x in range(len(lines)):            
             line = lines[x]
             if not line.startswith("%"):
                 continue
@@ -75,7 +95,7 @@ def processUses(lines,dfs):
                 
             rep = [] 
             for n in df:
-                for (key,val) in subs.iteritems():
+                for (key,val) in subs.items():
                     n = n.replace(key,val)
                 rep.append(n)
                 
@@ -95,7 +115,7 @@ NOTE_VALUES = {  # TODO: This is key of C
                'B':11,               
                }
                 
-def processTrack(channel, track):
+def process_track(channel, track):
     global NOTE_VALUES
     ret = []
     lon = ""
@@ -117,7 +137,7 @@ def processTrack(channel, track):
         
         if tok.startswith("Patch_"):
             prg = int(tok[6:])
-            pe  = MidiEvent(0,channel,"ProgramChange",[0xC0+channel,prg])
+            pe  = MIDIEvent(0,channel,"ProgramChange",[0xC0+channel,prg])
             ret.append(pe)
             continue
           
@@ -166,8 +186,8 @@ def processTrack(channel, track):
         onTime = curLen * noteOnPercent
         offTime = curLen - onTime
         
-        non  = MidiEvent(int(waitBefore),channel,"NoteOn",[0x90+channel,noteVal,128])
-        noff = MidiEvent(int(onTime),channel,"NoteOff",[0x80+channel,noteVal,128])
+        non  = MIDIEvent(int(waitBefore),channel,"NoteOn",[0x90+channel,noteVal,128])
+        noff = MIDIEvent(int(onTime),channel,"NoteOff",[0x80+channel,noteVal,128])
         ret.append(non)
         ret.append(noff)
         
@@ -178,12 +198,13 @@ def processTrack(channel, track):
             
     return ret                
 
-def processMusic(filename):
+def process_music(filename):
     with open(filename) as f:
         rawLines = f.readlines()
         
+    # Strip out comments and blank lines
     lines = []
-    for x in xrange(len(rawLines)):
+    for x in range(len(rawLines)):
         line = rawLines[x]
         if ";" in line:
             i = line.index(";")
@@ -192,24 +213,24 @@ def processMusic(filename):
         if len(line)>0:
             lines.append(line)
             
-    lines = combineUse(lines)
+    lines = combine_use(lines)
             
-    dfs = pullDefines(lines)
-    tracks = pullTracks(lines)
+    dfs = pull_defines(lines)
+    tracks = pull_tracks(lines)
     
     for track in tracks.values():
-        processUses(track,dfs)
+        process_uses(track,dfs)
         
     ret = []
-    for cnt in xrange(32):
+    for cnt in range(32):
         if cnt in tracks:
-            track = processTrack(cnt,tracks[cnt])
+            track = process_track(cnt,tracks[cnt])
             ret.append(track)    
        
     return ret
 
 if __name__=="__main__":
         
-    ret = processMusic('../TwelveDays.txt')
-    MidiTools.printTracks(ret)     
+    ret = process_music('../TwelveDays.txt')
+    midi_diss.print_tracks(ret)     
             
