@@ -1,0 +1,1 @@
+python MidiPlayer.py ../ZeldaWindWaker.mid

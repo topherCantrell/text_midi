@@ -1,0 +1,44 @@
+; ; Comment out the rest of the line
+; | mark measures (optional) if measure-checking is needed
+
+; include filename ; pull in another file right in place
+
+; Directives:
+;  :Channel_0             ; Gives the midi channel
+;  :Time_4/4              ; Standard music time signature
+;  :Speed_4=100           ; Quarter note = 100
+;  :Voice_TRUMPET         ; Voice (program) midi-patch-name or number
+;  :Octave_4              ; Octave 4
+;  :Sharp_F_G_A_C         ; List sharps
+;  :Flat_B_E              ; List flats
+;  :Volume_N              ; Set the volume (percent)
+;  :p :f :mp :mf :pp :ff  ; Dynamics
+;  :>   ::  :<            ; crescendo start, cres/dim end, diminuendo start
+
+; Notes
+;  Underscores (_) in a note specification are ignored. They are useful for visualization.
+;  Characters at the begging of the note indicate styling.
+;  > marcato
+;  . staccato
+;  t tenuto
+;
+;  Octave modifiers are given next as + or - (or multiples of).
+;  Octaves are carried over from note to note if not changed.
+;  
+;  Note durations are given next as numbers. 1 for whole, 2 for half,
+;  4 for eighth, and so on. Note durations are carried over from note
+;  to note if not changed.
+;
+;  Notes can be triplets or doublets by giving "t" or "d" after the length.
+;
+;  One or more dots can be given to make dotted note length.
+;
+;  The name of the note is A,B,C,D,E,F,G, or R for rest
+;
+;  After the letter can come "#" for sharp, "b" for flat, or "n" for natural. Unlike standard
+;  music, accidentals do not carry through the remainder of the measure. They must appear on
+;  every note.
+;
+;  A "~" on the end of the note indicates that it is tied into the next. If the next note is
+;  the same then the duration is held out. If the next note is different the notes are slurred
+;  together.

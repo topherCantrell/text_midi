@@ -1,0 +1,63 @@
+; Simple test of each channel
+; Plays a whole-note on each channel
+
+Track 0: 
+Patch_2 ; Bright Acoustic Piano
+1C5 | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R
+
+Track 1: 
+Patch_70 ; English Horn
+1R | 1D5 | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R
+
+Track 2:
+Patch_74 ; Flute
+1R | 1R | 1E5 | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R
+
+Track 3:
+Patch_57 ; Trumpet
+1R | 1R | 1R | 1F5 | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R
+
+Track 4:
+Patch_68 ; Baratone Sax
+1R | 1R | 1R | 1R | 1G5 | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R
+
+Track 5:
+Patch_1 ; Grand Piano
+1R | 1R | 1R | 1R | 1R | 1A5 | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R
+
+Track 6:
+Patch_5 ; Electric Piano
+1R | 1R | 1R | 1R | 1R | 1R | 1B5 | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R
+
+Track 7:
+Patch_22 ; Accordion
+1R | 1R | 1R | 1R | 1R | 1R | 1R | 1C6 | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R
+          
+Track 8:
+Patch_20 ; Church Organ
+1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1D6 | 1R | 1R | 1R | 1R | 1R | 1R | 1R
+
+Track 9:
+1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1C5 | 1R | 1R | 1R | 1R | 1R | 1R
+
+Track 10:
+Patch_72 ; Clarinet
+1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1C5 | 1R | 1R | 1R | 1R | 1R
+          
+Track 11:
+Patch_75 ; Recorder
+1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1C5 | 1R | 1R | 1R | 1R
+          
+Track 12:
+Patch_65 ; Soprano Sax
+1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1C5 | 1R | 1R | 1R
+          
+Track 13:
+Patch_26 ; Acoustic Guitar (steel)
+1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1C5 | 1R | 1R
+
+Track 14:
+1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1C5 | 1R
+
+Track 15:
+1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1R | 1C5
