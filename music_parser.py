@@ -1,4 +1,5 @@
 import string
+import sys
 
 from midi_events import MIDIEvent
 import midi_tools
@@ -231,6 +232,6 @@ def process_music(filename):
 
 if __name__=="__main__":
         
-    ret = process_music('../TwelveDays.txt')
+    ret = process_music(sys.argv[1])
     midi_diss.print_tracks(ret)     
             
