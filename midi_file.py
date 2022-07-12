@@ -10,17 +10,35 @@ class MIDIDataCursor:
         ret = bytes(self.data[self.pos:self.pos+size])
         self.pos += size
         return ret
+
+    def write(self,data):
+        self.data = self.data + list(data)
     
     def read_byte(self):
         ret = self.data[self.pos]
         self.pos += 1
         return ret
 
+    def write_byte(self,value):
+        self.data.append(value)
+
     def read_two_bytes(self):
         return (self.read_byte()<<8) | self.read_byte()    
 
+    def write_two_bytes(self,value):
+        a = (value>>8) & 0xFF
+        b = value & 0xFF
+        self.write_byte(a)
+        self.write_byte(b)
+
     def read_four_bytes(self):
         return (self.read_two_bytes()<<16) | self.read_two_bytes()
+
+    def write_four_bytes(self,value):
+        a = (value>>16) & 0xFFFF
+        b = value & 0xFFFF
+        self.write_two_bytes(a)
+        self.write_two_bytes(b)
 
     def read_delta(self):
         ret = 0
@@ -30,12 +48,32 @@ class MIDIDataCursor:
             if v<0x80:
                 return ret
 
+    def write_delta(self,delta):
+        buf = []
+        while True:
+            if delta<0x80:
+                buf.append(delta)
+                break
+            buf.append(delta&0x7F)
+            delta = delta >> 7
+        for i in range(len(buf)-1,-1,-1):
+            d = buf[i]
+            if i!=0:
+                d = d | 0x80
+            self.write_byte(buf[i])
+        
+
 class MIDIFile:
 
     def __init__(self):                
         self.format = None
         self.divis = None        
         self.tracks = None
+
+    def build_file(self,format,divis,tracks):
+        self.format = format
+        self.divis = divis
+        self.tracks = tracks        
 
     def parse_file(self,filename):
         # Load the entire file as a list of integers
