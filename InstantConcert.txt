@@ -1,6 +1,0 @@
-; Master file for Instant Concert
-; Original score by Harold L. Walters
-;
-; This file pulls the parts together and assigns them channels
-
-include InstantTrumpet1.txt       ; 1st trumpets
