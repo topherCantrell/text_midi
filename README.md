@@ -1,5 +1,23 @@
 # Text to MIDI
 
+The package is a suite of tools for MIDI music processing.
+
+![](art/midiTools.jpg)
+
+## midi_diss.py
+
+This tool reads a standard MIDI file and produces a text representation of the tracks and events.
+
+## midi_assm.py
+
+This tool reads a text representation of tracks and events and produces a standard MIDI file.
+
+## music_parser.py
+
+This tool reads a text descriptions of music and creates a list of tracks and events (as a text representation or a MIDI file or both).
+
+# Music Representation Format
+
 ![](art/twinkle.jpg)
 
 ```
