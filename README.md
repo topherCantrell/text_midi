@@ -1,6 +1,6 @@
 # Text to MIDI
 
-The package is a suite of tools for MIDI music processing.
+This package is a suite of tools for MIDI music processing.
 
 ![](art/midiTools.jpg)
 
