@@ -1,9 +1,15 @@
+"""
+All the different (supported) MIDI event types.
+"""
 
 class MetaEvent:
     """MIDI Meta Events
+
+    Meta events have a type and a list of data bytes.
     
     """
 
+    # Some well-known meta events (add more as needed)
     TYPE_DESC = {
         0x00: 'Sequence number',
         0x01: 'Text event',
@@ -16,7 +22,7 @@ class MetaEvent:
         0x08: 'Program name (text)',
         0x0A: '?Author? (text)',
         0x20: 'MIDI channel prefix assignment',
-        0x2F: 'END OF TRACK',
+        0x2F: 'END OF TRACK', # Required at the end of every track
         0x51: 'Tempo setting',
         0x54: 'SMPTE offset',
         0x58: 'Time signature',
@@ -54,6 +60,8 @@ class MetaEvent:
         
     def __str__(self):
         """Returns a text representation of the MetaEvent
+
+        This is the midi-assembly format.
                 
         Returns:
           str: String representation          
@@ -76,6 +84,8 @@ class MetaEvent:
         return "%-7d MetaEvent     %3d %s%s" % (self.delta,self.meta_type,ds,com)
 
 class SystemExclusiveEvent:
+    """A message intended for a specific piece of hardware
+    """
 
     def __init__(self,delta,data):
         self.delta = delta
