@@ -1,0 +1,10 @@
+
+:Voice 2
+
+1C:E:G
+
+D:F:A
+
+E:G:Bb-
+
+C+:E:G

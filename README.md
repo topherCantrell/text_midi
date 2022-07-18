@@ -100,15 +100,17 @@ Only the NOTE (name of the note) is required.
 
 # Special Commands
 
+These must be lines by themselves
+
 ```
-:Channel_0             ; [0] Gives the midi channel
-:Time_4/4              ; [4/4] Standard music time signature
-:Tempo_4=100           ; [120] Quarter note = 100
-:Voice_41              ; [0=Acoustic grand piano] Midi-patch-name or number
-:Octave_4              ; Octave 4
-:Sharp_F_G_A_C         ; List sharps
-:Flat_B_E              ; List flats
-:Volume_N              ; Set the volume (percent)
+:Channel 0             ; [0] Gives the midi channel
+:Time 4/4              ; [4/4] Standard music time signature
+:Tempo 4=100           ; [120] Quarter note = 100
+:Voice 41              ; [0=Acoustic grand piano] Midi-patch-name or number
+:Octave 4              ; Octave 4
+:Sharp F,G,A,C         ; List sharps
+:Flat B,E              ; List flats
+:Volume N              ; Set the volume (percent)
 :p :f :mp :mf :pp :ff  ; Dynamics
 :>   ::  :<            ; crescendo start, cres/dim end, diminuendo start
 ```

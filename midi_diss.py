@@ -10,10 +10,8 @@ def print_midi_as_text(filename):
       filename (str): Name of the file      
     """
     midi = MIDIFile()
-    midi.parse_file(filename)
-    #(time,tracks) = MidiFile.parseFile(filename)
-    print("; numTracks=%d  divis=%d" % (len(midi.tracks),midi.divis))
-    print('\n\n')
+    midi.parse_file(filename)        
+    print("NumTracks=%d Format=%d Division=%d" % (len(midi.tracks),midi.format,midi.divis))
 
     print_tracks(midi.tracks)    
         
@@ -38,7 +36,6 @@ def print_track(track):
     """        
     for e in track:
         print(str(e))
-
 
 if __name__ == "__main__":    
     print_midi_as_text(sys.argv[1])

@@ -1,9 +1,17 @@
-from midi_events import MetaEvent, ContinuationEvent, MIDIEvent
+from midi_events import MetaEvent, SystemExclusiveEvent
+from midi_events import MIDIChannelNoteEvent
+from midi_events import MIDIChannelProgramChangeEvent
+from midi_events import MIDIChannelControlChangeEvent
+from midi_events import MIDIChannelPolyphonicKeyPressureEvent
+from midi_events import MIDIChannelRunningStatusEvent
 
 class MIDIDataCursor:
 
-    def __init__(self,data,pos):
-        self.data = data
+    def __init__(self,data=None,pos=0):
+        if data:
+            self.data = data
+        else:
+            self.data = []
         self.pos = pos
 
     def read(self,size):
@@ -18,6 +26,9 @@ class MIDIDataCursor:
         ret = self.data[self.pos]
         self.pos += 1
         return ret
+
+    def write_bytes(self,data):
+        self.data.extend(data)
 
     def write_byte(self,value):
         self.data.append(value)
@@ -55,25 +66,89 @@ class MIDIDataCursor:
                 buf.append(delta)
                 break
             buf.append(delta&0x7F)
-            delta = delta >> 7
+            delta = delta >> 7       
         for i in range(len(buf)-1,-1,-1):
             d = buf[i]
             if i!=0:
                 d = d | 0x80
-            self.write_byte(buf[i])
+            self.write_byte(d)
         
 
 class MIDIFile:
+
+    """
+    MIDI file header:
+
+    "MThd" + 0006 + FF + NN + DD
+      - FF Format (01 for multiple-track-file)
+      - NN number of tracks that follow
+      - DD time division (96 means 96 ticks per beat)
+
+    "MTrk" + SSSS + EVENT+EVENT+EVENT...
+
+    Event:
+    <v_time> + <event>    
+    """
 
     def __init__(self):                
         self.format = None
         self.divis = None        
         self.tracks = None
 
-    def build_file(self,format,divis,tracks):
-        self.format = format
-        self.divis = divis
-        self.tracks = tracks        
+    def write_file(self,filename):
+
+        cursor = MIDIDataCursor()
+        cursor.write(b'MThd')
+
+        cursor.write_four_bytes(6) # Length of the header record (always 6 bytes)
+
+        cursor.write_two_bytes(self.format) # How to interpret the tracks (likely a 01 for multi-track-song)
+        cursor.write_two_bytes(len(self.tracks))
+        cursor.write_two_bytes(self.divis)
+
+        for track in self.tracks:
+            track_data = MIDIDataCursor()
+            for event in track:
+
+                # Every event starts with a delta
+                track_data.write_delta(event.delta)
+
+                if isinstance(event,MetaEvent):
+                    track_data.write_byte(0xFF)
+                    track_data.write_byte(event.meta_type)
+                    track_data.write_delta(len(event.meta_data))
+                    track_data.write_bytes(event.meta_data)
+
+                elif isinstance(event,MIDIChannelProgramChangeEvent):
+                    track_data.write_byte(0xC0 | event.channel)                    
+                    track_data.write_byte(event.value)
+
+                elif isinstance(event,MIDIChannelControlChangeEvent):
+                    track_data.write_byte(0xB0 | event.channel)
+                    track_data.write_byte(event.controller)
+                    track_data.write_byte(event.value)
+
+                elif isinstance(event,MIDIChannelRunningStatusEvent):
+                    track_data.write_bytes(event.data)                                        
+
+                elif isinstance(event,MIDIChannelNoteEvent):
+                    if event.note_on:
+                        track_data.write_byte(0x90 | event.channel)
+                    else:
+                        track_data.write_byte(0x80 | event.channel)
+                    track_data.write_byte(event.note)
+                    track_data.write_byte(event.velocity)
+
+                else:                                        
+                    raise NotImplementedError(event)                               
+
+            cursor.write(b'MTrk')
+            cursor.write_four_bytes(len(track_data.data))
+            cursor.write_bytes(track_data.data)            
+
+        with open(filename,'wb') as f:
+            f.write(bytes(cursor.data))
+            f.flush()
 
     def parse_file(self,filename):
         # Load the entire file as a list of integers
@@ -103,94 +178,127 @@ class MIDIFile:
 
     def read_track_chunk(self,cursor):
         
-        ret = []
+        ret = [] # The events of this track
         
+        # Check the header
         dat = cursor.read(4)
         if dat!=b'MTrk':
             raise Exception("Missing 'MTrk' header")
         trackSize = cursor.read_four_bytes()    
-        
+                
         end_of_track = cursor.pos+trackSize
-        
-        previous = None
 
-        while cursor.pos<end_of_track:        
+        # Information about the last command for the "running status" feature        
+        previous = None
+        previous_size = 0
+
+        while cursor.pos<end_of_track:       
+                        
+            # Evert event starts with a var-length delta
             delta = cursor.read_delta()        
-        
-            # Handle META events
 
             d = cursor.read_byte()
+
+            # MIDI lets you skip the status byte of the event and use the last given one.
+            # This makes for a shorter file without all the repeated "note on" and "note off".
+            # If the upper bit is NOT set, then this uses the last event type.
+            if d<128: # This is data ... running status shortcut
+                if not isinstance(previous,MIDIChannelNoteEvent) and not isinstance(previous,MIDIChannelControlChangeEvent):
+                    # I've only seen these two kinds of continuations, but there might be others. Add
+                    # them if you see them.
+                    raise NotImplemented(f'UNSUPPORTED PREVIOUS {type(previous)}')
+                data = [d] # The first byte counts as data
+                for _ in range(previous_size-1):
+                    data.append(cursor.read_byte())                
+                evt = MIDIChannelRunningStatusEvent(delta,previous,data)
+                ret.append(evt) 
+                continue
+        
+            # FF -- META events            
             if(d==0xFF):
                 meta_type = cursor.read_byte()
                 meta_len = cursor.read_delta()
                 meta_data = cursor.read(meta_len)                
-                e = MetaEvent(delta,meta_type,meta_data)
-                ret.append(e)
+                evt = MetaEvent(delta,meta_type,meta_data)
+                ret.append(evt)                
+                continue
+
+            command = d>>4 # Upper 4 bits
+
+            # Fx -- System Exclusive events
+            if command==15: # (but wasn't 0xFF) System Exclusive
+                if d==0b11110000 or d==0b11110010 or d==0b11110011:
+                    # There are others. Add them as you see them. Some have
+                    # multiple data bytes.
+                    raise NotImplemented(d)
+                evt = SystemExclusiveEvent(delta,[d])                
+                ret.append(evt)
                 continue
             
-            # This is a channel event
-
-            command = d>>4
-            channel = d&0xF
-            
-            if command<8: # Continuation Event
-                data = cursor.read_byte()
-                evt = ContinuationEvent(delta,previous,[d,data])
-                ret.append(evt)            
+            # This must be a channel event
+                        
+            channel = d&0xF # Lower 4 bits
                 
-            elif command==8: # Note Off Event
+            if command==8: # Note Off Event
                 note = cursor.read_byte()
                 velocity = cursor.read_byte()
-                evt = MIDIEvent(delta,channel,"NoteOff",[d,note,velocity])
+                evt = MIDIChannelNoteEvent(delta,channel,False,note,velocity)
                 previous = evt
-                ret.append(evt)
+                previous_size = 2
+                ret.append(evt)                          
                 
             elif command==9: # Note On Event
                 # MIDI allows NoteOn-velocity-0 to mean NoteOff
                 note = cursor.read_byte()
                 velocity = cursor.read_byte()
-                evt = MIDIEvent(delta,channel,"NoteOn",[d,note,velocity])
+                evt = MIDIChannelNoteEvent(delta,channel,True,note,velocity)
                 previous = evt
-                ret.append(evt)
+                previous_size = 2
+                ret.append(evt)                           
                 
             elif command==10: # Polyphonic Key Pressure
-                raise NotImplemented()
+                note = cursor.read_byte()
+                value = cursor.read_byte()
+                evt = MIDIChannelPolyphonicKeyPressureEvent(delta,channel,note,value)
+                previous = evt
+                previous_size = 2
+                ret.append(evt)                
 
             elif command==11: # Control Change
-                controller = cursor.read_byte()
+                cntr = cursor.read_byte()
                 value = cursor.read_byte()
-                evt = MIDIEvent(delta,channel,"ControllerChange",[d,controller,value])
+                evt = MIDIChannelControlChangeEvent(delta,channel,cntr,value)
                 previous = evt
-                ret.append(evt)
+                previous_size = 2
+                ret.append(evt)                
                 
             elif command==12: # Program Change
                 program = cursor.read_byte()
-                evt = MIDIEvent(delta,channel,"ProgramChange",[d,program])
+                evt = MIDIChannelProgramChangeEvent(delta,channel,program)
                 previous = evt
-                ret.append(evt)
+                ret.append(evt)                
                 
             elif command==13: # Channel Pressure
+                # Add if you need it.
                 raise NotImplemented()
 
             elif command==14: # Pitch Bend Change
+                # Add if you need it.
                 raise NotImplemented()
 
-            elif command==15: # System Exclusive
-                raise NotImplemented()                                
-        
-        return ret
-    
+            elif command==15: # (but wasn't 0xFF) System Exclusive
+                if d==0b11110000 or d==0b11110010 or d==0b11110011:
+                    raise NotImplemented()
+                evt = SystemExclusiveEvent(delta,[d])                
+                ret.append(evt)
+                #print(delta,hex(old_pos),evt)
 
-    def write_file(self,filename):
-        # ** Header chunk is
-        # MThd           ' 4 bytes
-        # 00 00 00 06    ' 6 more bytes in header
-        # 00 01          ' Format
-        # 00 nn          ' Number of tracks
-        # dd dd          ' Division
+            else:
+                # It isn't really possible to get here. We checked all
+                # possibilities. But just in case.
+                raise Exception('Unknown command '+str(command))                    
         
-        # ** Each Track
-        # MTrk
-        # ss ss ss ss    ' Size
-        # delta/event ...
-        raise NotImplemented()
+        if not isinstance(ret[-1],MetaEvent) or ret[-1].meta_type!=0x2F:
+            raise Exception('Missing END OF TRACK Meta Event')
+
+        return ret
