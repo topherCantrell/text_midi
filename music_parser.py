@@ -1,3 +1,27 @@
+"""
+MIT License
+
+Copyright (c) 2022 Chris Cantrell
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
 import string
 import sys
 
@@ -15,8 +39,8 @@ from midi_file import MIDIFile
 def pull_tracks(lines):
     """Pull the music tracks from the list of lines.
 
-    Tracks are of the form "Track X:", where X is the track number. All the
-    music that follows the track-header (up to the next track or define) is
+    Tracks are of the form "Track X:", where X is the track name. All the
+    music that follows the track-header (up to the next track) is
     part of the track.
     """
     tracks = {}
@@ -30,17 +54,7 @@ def pull_tracks(lines):
             if current is not None:
                 current.append(line)   
     return tracks 
-                
-NOTE_VALUES = { # offsets within an octave             
-               'C':0,
-               'D':2,
-               'E':4,
-               'F':5,
-               'G':7,
-               'A':9,
-               'B':11,               
-               }
-                
+
 def parse_note(text,defaults,err_text=None):
 
     # For errors
@@ -172,6 +186,16 @@ def parse_note(text,defaults,err_text=None):
         'note_accidental':note_accidental,        
         'note_parallels':note_parallels,
     }
+
+NOTE_VALUES = { # offsets within an octave             
+               'C':0,
+               'D':2,
+               'E':4,
+               'F':5,
+               'G':7,
+               'A':9,
+               'B':11,               
+               }
 
 def get_midi_note_number(info):
     """Combine octave, note-name, and accidentals to get the midi note number
@@ -330,8 +354,8 @@ def process_music(text):
 if __name__=="__main__":
         
     ret = process_music_file(sys.argv[1])
-    print("NumTracks=%d Format=%d Division=%d" % (len(ret.tracks),ret.format,ret.divis))
 
+    print("NumTracks=%d Format=%d Division=%d" % (len(ret.tracks),ret.format,ret.divis))
     midi_diss.print_tracks(ret.tracks)        
 
     ret.write_file(sys.argv[2])
