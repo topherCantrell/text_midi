@@ -66,14 +66,16 @@ def parse_note(text,defaults,err_text=None):
     note_name = text[i]
     note_right = text[i+1:]
 
-    # Accents are at the very beginning. Just one. ">.-^"
+    # Accents are at the very beginning. Just one. ">.-^". They do not
+    # default into the next note.
     note_accent = ""
     if note_left:                
         if note_left[0] in '>.-^':
             note_accent = note_left[0]
             note_left = note_left[1:]
 
-    # Tie marks are at the very end of the note length. Just one "~".
+    # Tie marks are at the very end of the note length. Just one "~". They
+    # do not default into the next note.
     note_tie = False
     if note_left:
         if note_left[-1] == '~':
@@ -81,16 +83,17 @@ def parse_note(text,defaults,err_text=None):
             note_left = note_left[:-1]
 
     # Note length is a number (multiple digits) followed by one or more dots.
-    # The very end can be "t" for tuplet or "d" for duplet.
+    # The very end can be "t" for tuplet or "d" for duplet. Dots and "td" MUST
+    # follow a note length number.
     note_len = ''
+    note_dots = 0 
+    note_plet = None
     while note_left and note_left[0] in '0123456789':
         note_len += note_left[0]
-        note_left = note_left[1:]
-    note_plet = None
+        note_left = note_left[1:]    
     if note_left and note_left[-1] in 'td':
         note_plet = note_left[-1]
-        note_left = note_left[:-1]
-    note_dots = 0    
+        note_left = note_left[:-1]       
     while note_left and note_left[-1]=='.':
         note_dots += 1
         note_left = note_left[:-1]
@@ -98,19 +101,26 @@ def parse_note(text,defaults,err_text=None):
         if not note_len:
             raise Exception('Numeric length must also be given in "'+err_text+'"')
 
+    # That's all we know about. Anything else to the left of the note name is invalid.
     if note_left:
-        raise Exception('Invalid syntax "'+err_text+'"')
+        raise Exception('Invalid syntax left of note name "'+err_text+'"')
 
-    # If no length was given then use the last length
+    # If a length was given then change the defaults
+    # Otherwise, use the defaults
     if note_len:
         note_len = int(note_len)
-        defaults['length'] = note_len
+        defaults['note_len'] = note_len        
+        defaults['note_dots'] = note_dots
+        defaults['note_plet'] = note_plet
     else:
-        note_len = defaults['length']
+        note_len = defaults['note_len']
+        note_dots = defaults['note_dots']
+        note_plet = defaults['note_plet']
 
     # At the moment, we don't support key signatures or persisting accidentals
-    # through the measure. There is not need for a "natural" marking. There
-    # is no need for more than one sharp "#" or flat "b" marking on a note
+    # through the measure. There is no need for a "natural" marking currently. 
+    # There is no need for more than one sharp "#" or flat "b" marking on a note
+    # currently.
     note_accidental = None
     if note_right:
         if note_right[0] in '#bn':
@@ -119,14 +129,14 @@ def parse_note(text,defaults,err_text=None):
 
     # Octaves are on the end. They can be absolute numbers (multi digits) or they
     # can be multiple "+" or "-" to adjust the current octave. Either way, the
-    # current ocatave becomes the new octave
+    # current ocatave becomes the new default octave.
 
     note_octave = ''
     while note_right and note_right[0] in '0123456789':
         note_octave += note_right[0]
         note_right = note_right[1:]
     if note_octave == '':
-        note_octave = defaults['octave']
+        note_octave = defaults['note_octave']
     else:
         note_octave = int(note_octave)
     while note_right and note_right[0] in '+-':
@@ -137,10 +147,10 @@ def parse_note(text,defaults,err_text=None):
         else:
             note_octave -= 1
 
-    defaults['octave'] = note_octave
+    defaults['note_octave'] = note_octave
 
     if note_right:
-        raise Exception('Invalid syntax "'+err_text+'"')
+        raise Exception('Invalid syntax right of note name "'+err_text+'"')
 
     # Parallel notes are only note name (not rest), accidentals, and octave
     note_parallels = []
@@ -149,15 +159,17 @@ def parse_note(text,defaults,err_text=None):
             raise Exception('Invalid parallel note "'+par+'" in "'+err_text+'"')
         note_parallels.append(parse_note(par,defaults))        
 
-    return {
-        'note_accent':note_accent,
-        'note_len':note_len,
-        'note_tie':note_tie,
-        'note_plet':note_plet,
+    return {        
+        # These values can carry between notes
+        'note_len':note_len,        
         'note_dots':note_dots,
-        'note_name':note_name,
-        'note_accidental':note_accidental,
+        'note_plet':note_plet,
         'note_octave':note_octave,
+        # These values are not carried between notes
+        'note_accent':note_accent,
+        'note_tie':note_tie,        
+        'note_name':note_name,
+        'note_accidental':note_accidental,        
         'note_parallels':note_parallels,
     }
 
@@ -182,8 +194,12 @@ def process_note(info,defaults,wait_before,events):
 
     # TODO handle ties
 
-    # TODO triplets and duplets
-    note_len = defaults['ticksPerWhole'] / info['note_len']
+    bl = info['note_len']
+    if info['note_plet'] == 't':
+        bl = int(bl * 3 / 2)
+    elif info['note_plet'] == 'd':
+        bl = int(bl * 2 / 3)
+    note_len = defaults['ticksPerWhole'] / bl
 
     # TODO handle multiple dots
     if info['note_dots']:
@@ -197,7 +213,7 @@ def process_note(info,defaults,wait_before,events):
     # TODO apply staccato, etc
     if info['note_name']=='R':
         # This is a rest ... just accumulate the entire note time
-        return int(note_len)        
+        return int(note_len) + wait_before        
     len_on = int(note_len * defaults['noteOnPercent'])
     len_off = int(note_len - len_on)
 
@@ -222,8 +238,12 @@ def process_track(name,track):
         'volume'  : 0.50,         # 50% without accent          
         'noteOnPercent' : 0.80,   # Normal on/off time of a note
         'ticksPerWhole' : 256*4,  # Plenty of resoultion with 256 ticks per beat (quarter note)
-        'length' : 4,             # Music input default is quarter note
-        'octave' : 4,             # Middle C is C4
+        # Length attributes can carry between notes
+        'note_len' : 4,           # Music input default is quarter note
+        'note_dots' : 0,          # Number of dots (none by default)
+        'note_plet' : '',         # Triplets and duplets (none by default)
+        # Octave numbers can carry between notes
+        'note_octave' : 4,        # Middle C is C4
     }
 
     # Add the name of the track to the MIDI file (this is just informative)
@@ -241,6 +261,15 @@ def process_track(name,track):
             if text.lower().startswith(':voice'):
                 prg = int(text[7:].strip())
                 evt  = MIDIChannelProgramChangeEvent(0,note_defaults['channel'],prg)
+                ret.append(evt)
+            elif text.lower().startswith(':tempo'):
+                i = text.find('=')
+                note_defaults['tempo'] = int(text[i+1:].strip())
+                dv = 60_000_000 // note_defaults['tempo']
+                a = (dv>>16) & 0xFF
+                b = (dv>>8) & 0xFF
+                c = (dv) & 0xFF
+                evt = MetaEvent(0,0x51,[a,b,c])
                 ret.append(evt)
             else:
                 raise Exception('Unknown "'+text+'"')
