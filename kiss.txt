@@ -1,0 +1,9 @@
+Track 0:
+:Tempo 4=90
+
+8tE4 F F# | 4G 8tG A G 8F# 4.C5       | 4C4 16G Gb F E 8Eb 4Bb 8Ab
+
+
+Track 1:
+:Tempo 4=90
+8tR R G2  | 2C3:E:G 4.Eb:Gb:A:C4 8A2 | 4.D3:F:A 8D 4G2:F3 G2:F3

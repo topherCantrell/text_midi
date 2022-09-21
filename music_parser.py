@@ -55,8 +55,8 @@ def pull_tracks(lines):
                 current.append(line)   
     return tracks 
 
-def parse_note(text,defaults,err_text=None):
-
+def parse_note(text,info,err_text=None):
+    
     # For errors
     if err_text is None:
         err_text = text
@@ -77,8 +77,7 @@ def parse_note(text,defaults,err_text=None):
     if not fnd:
         raise Exception('Note name is required in "'+err_text+'"')
     note_left = text[0:i]
-    note_name = text[i]
-    note_right = text[i+1:]
+    note_right = text[i:]
 
     # Accents are at the very beginning. Just one. ">.-^". They do not
     # default into the next note.
@@ -119,73 +118,78 @@ def parse_note(text,defaults,err_text=None):
     if note_left:
         raise Exception('Invalid syntax left of note name "'+err_text+'"')
 
-    # If a length was given then change the defaults
-    # Otherwise, use the defaults
+    # If no length was given, use the last note's value
     if note_len:
-        note_len = int(note_len)
-        defaults['note_len'] = note_len        
-        defaults['note_dots'] = note_dots
-        defaults['note_plet'] = note_plet
+        note_len = int(note_len)        
     else:
-        note_len = defaults['note_len']
-        note_dots = defaults['note_dots']
-        note_plet = defaults['note_plet']
+        note_len = info['note_len']
+        note_dots = info['note_dots']
+        note_plet = info['note_plet']
+    
+    # Now for the pitch(es)
 
-    # At the moment, we don't support key signatures or persisting accidentals
-    # through the measure. There is no need for a "natural" marking currently. 
-    # There is no need for more than one sharp "#" or flat "b" marking on a note
-    # currently.
-    note_accidental = None
-    if note_right:
-        if note_right[0] in '#bn':
-            note_accidental = note_right[0]
-            note_right = note_right[1:]    
+    note_pitches = [] # Each is a tuple: (note_name,accidental)    
+    for pitch in [note_right] + par_notes:        
+        if not pitch[0] in 'CDEFGABR':
+            raise Exception('Invalid note name "'+pitch+'" in "'+err_text+'"')
+        note_name = pitch[0]
+        note_right = pitch[1:]    
 
-    # Octaves are on the end. They can be absolute numbers (multi digits) or they
-    # can be multiple "+" or "-" to adjust the current octave. Either way, the
-    # current ocatave becomes the new default octave.
+        # At the moment, we don't support key signatures or persisting accidentals
+        # through the measure. There is no need for a "natural" marking currently. 
+        # There is no need for more than one sharp "#" or flat "b" marking on a note
+        # currently.
+        note_accidental = None
+        if note_right:
+            if note_right[0] in '#bn':
+                note_accidental = note_right[0]
+                note_right = note_right[1:]    
 
-    note_octave = ''
-    while note_right and note_right[0] in '0123456789':
-        note_octave += note_right[0]
-        note_right = note_right[1:]
-    if note_octave == '':
-        note_octave = defaults['note_octave']
-    else:
-        note_octave = int(note_octave)
-    while note_right and note_right[0] in '+-':
-        octave_offset = note_right[0]
-        note_right = note_right[1:]
-        if octave_offset=='+':
-            note_octave += 1
+        # Octaves are on the end. They can be absolute numbers (multi digits) or they
+        # can be multiple "+" or "-" to adjust the current octave. Either way, the
+        # current ocatave becomes the new default octave.
+
+        note_octave = ''
+        while note_right and note_right[0] in '0123456789':
+            note_octave += note_right[0]
+            note_right = note_right[1:]
+        if note_octave == '':
+            note_octave = info['note_octave']
         else:
-            note_octave -= 1
+            if note_name=='R':            
+                raise Exception('Rests do not have octaves "'+pitch+'" in "'+err_text+'"')
+            note_octave = int(note_octave)
+        while note_right and note_right[0] in '+-':
+            if note_name=='R':            
+                raise Exception('Rests do not have octaves "'+pitch+'" in "'+err_text+'"')
+            octave_offset = note_right[0]
+            note_right = note_right[1:]
+            if octave_offset=='+':
+                note_octave += 1
+            else:
+                note_octave -= 1
+        if note_right:            
+            raise Exception('Invalid syntax right of note name "'+pitch+'" in "'+err_text+'"')
+        note_pitches.append((note_name,note_accidental,note_octave))
+        info['note_octave'] = note_octave
 
-    defaults['note_octave'] = note_octave
+        if note_name=='R':            
+            if note_accidental:
+                raise Exception('Rests do not have accientals "'+pitch+'" in "'+err_text+'"')
+    
+    if len(note_pitches)>1:
+        for pitch in note_pitches:
+            if pitch[0]=='R':
+                raise Exception('Rests not allowed in parallel notes "'+err_text+'"')          
 
-    if note_right:
-        raise Exception('Invalid syntax right of note name "'+err_text+'"')
-
-    # Parallel notes are only note name (not rest), accidentals, and octave
-    note_parallels = []
-    for par in par_notes:               
-        if not par or par[0] not in 'CDEFGAB':
-            raise Exception('Invalid parallel note "'+par+'" in "'+err_text+'"')
-        note_parallels.append(parse_note(par,defaults))        
-
-    return {        
-        # These values can carry between notes
-        'note_len':note_len,        
-        'note_dots':note_dots,
-        'note_plet':note_plet,
-        'note_octave':note_octave,
-        # These values are not carried between notes
-        'note_accent':note_accent,
-        'note_tie':note_tie,        
-        'note_name':note_name,
-        'note_accidental':note_accidental,        
-        'note_parallels':note_parallels,
-    }
+    # Update the defaults for the next note to access
+    #info['note_octave'] = note_octave # Done in the pitch loop
+    info['note_len'] = note_len        
+    info['note_dots'] = note_dots
+    info['note_plet'] = note_plet
+    info['note_accent'] = note_accent
+    info['note_tie'] = note_tie
+    info['note_pitches'] = note_pitches    
 
 NOTE_VALUES = { # offsets within an octave             
                'C':0,
@@ -197,66 +201,91 @@ NOTE_VALUES = { # offsets within an octave
                'B':11,               
                }
 
-def get_midi_note_number(info):
+def get_midi_note_number(note_name,note_accidental,note_octave):
     """Combine octave, note-name, and accidentals to get the midi note number
 
     Midi octaves go from -1 through 9. Midi note 0 is C-1. Midi note 12 is C0.
     Midi note 120 is C9. Our input system doesn't support negative numbers, but 
     you can specify octave "-1" with "0-".
     """
-    octave = info['note_octave'] + 1
-    ret = octave * 12 + NOTE_VALUES[info['note_name']]
-    if info['note_accidental'] == '#':
+    note_octave += 1    
+    ret = note_octave * 12 + NOTE_VALUES[note_name]
+    if note_accidental == '#':
         ret += 1
-    elif info['note_accidental'] == 'b':
+    elif note_accidental == 'b':
         ret -= 1
     return ret
 
-def process_note(info,defaults,wait_before,events):
+def process_note(info,previous_note,wait_before,events):
     # It is all about volume (velocity) and duration. The volume is given on
     # the NoteOn event. The duration is the distance between NoteOn and NoteOff.   
 
-    # TODO handle ties
+    # First, the duration (on and off)
+
+    print(':::',wait_before,'::',info)
 
     bl = info['note_len']
     if info['note_plet'] == 't':
         bl = int(bl * 3 / 2)
     elif info['note_plet'] == 'd':
         bl = int(bl * 2 / 3)
-    note_len = defaults['ticksPerWhole'] / bl
+    note_len = info['ticksPerWhole'] / bl
 
     # TODO handle multiple dots
     if info['note_dots']:
         note_len = note_len + note_len/2
 
+    # Second, the volume
+
     # TODO apply accents
     # TODO caller needs to keep up with increase/decrease volume over time
-    velocity = int(defaults['volume']*127)
+    velocity = int(info['volume']*127)
+
+    # If this is a rest, we just accumulate the total time    
+    
+    # TODO apply staccato, etc
+    if info['note_pitches'][0][0]=='R':
+        return int(note_len) + wait_before           
 
     # Number of ticks the note is on and off
-    # TODO apply staccato, etc
-    if info['note_name']=='R':
-        # This is a rest ... just accumulate the entire note time
-        return int(note_len) + wait_before        
-    len_on = int(note_len * defaults['noteOnPercent'])
+    len_on = int(note_len * info['noteOnPercent'])
     len_off = int(note_len - len_on)
 
-    # All notes on
-    for ni in [info] + info['note_parallels']:
-        note = get_midi_note_number(ni)
-        events.append(MIDIChannelNoteEvent(wait_before,defaults['channel'],True,note,velocity))
-        wait_before = 0     
+    # If the last note was tied into this one, then there was already a noteOn. No
+    # need for that now. Otherwise generate noteOn events for this note.
+    
+    if previous_note and previous_note['note_tie']:
+        print('Last note was tied into this ... no noteOns')
+        pass
+    else:
+        # All notes on
+        for note_name,note_accidental,note_octave in info['note_pitches']:
+            note = get_midi_note_number(note_name,note_accidental,note_octave)
+            events.append(MIDIChannelNoteEvent(wait_before,info['channel'],True,note,velocity))
+            wait_before = 0 # Reset time-till-next-event
+
+    # If this note is tied into the next, then we accumulate the time just like
+    # we did a rest (but after we turned notes on if needed)
+
+    if info['note_tie']:
+        print('This note is tied into next ... just accumulate')
+        return int(note_len) + wait_before
+
+    # Looks like this note is not tied to the next. We need to generate noteOff events here.
+
+    print('This note is not tied into next ... turn off the events')
     # All notes off
-    for ni in [info] + info['note_parallels']:
-        note = get_midi_note_number(ni)
-        events.append(MIDIChannelNoteEvent(len_on,defaults['channel'],False,note,0))
+    for note_name,note_accidental,note_octave in info['note_pitches']:
+        note = get_midi_note_number(note_name,note_accidental,note_octave)
+        events.append(MIDIChannelNoteEvent(wait_before+len_on,info['channel'],False,note,0))
         len_on = 0
+
     return len_off
 
 def process_track(name,track):    
     ret = [] # List of midi events
 
-    note_defaults = {   
+    note_info = {   
         'channel' : 0,            # Can be changed per-track
         'tempo'   : 120,          # By default, midi is 120 beats (quarter notes) per minute
         'volume'  : 0.50,         # 50% without accent          
@@ -265,9 +294,12 @@ def process_track(name,track):
         # Length attributes can carry between notes
         'note_len' : 4,           # Music input default is quarter note
         'note_dots' : 0,          # Number of dots (none by default)
-        'note_plet' : '',         # Triplets and duplets (none by default)
-        # Octave numbers can carry between notes
-        'note_octave' : 4,        # Middle C is C4
+        'note_plet' : '',         # Triplets and duplets (none by default)        
+        # Octave can carry between notes
+        'note_octave' : 4,
+        # These are specified by every note        
+        'note_tie' : False,
+        'note_pitches': None, # (note_name, note_accidental, note_octave)
     }
 
     # Add the name of the track to the MIDI file (this is just informative)
@@ -277,19 +309,19 @@ def process_track(name,track):
     ret.append(MetaEvent(0,3,data))
 
     wait_before = 0 # This is a note's "off time" after it has been on
-
+    previous_note = None # TODO ultimately we want to make a list of parsed notes so the process_note can have them all at once
     for line in track:                
         text = line['text']
         if text.startswith(':'):
             # Special music commands
             if text.lower().startswith(':voice'):
                 prg = int(text[7:].strip())
-                evt  = MIDIChannelProgramChangeEvent(0,note_defaults['channel'],prg)
+                evt  = MIDIChannelProgramChangeEvent(0,note_info['channel'],prg)
                 ret.append(evt)
             elif text.lower().startswith(':tempo'):
                 i = text.find('=')
-                note_defaults['tempo'] = int(text[i+1:].strip())
-                dv = 60_000_000 // note_defaults['tempo']
+                note_info['tempo'] = int(text[i+1:].strip())
+                dv = 60_000_000 // note_info['tempo']
                 a = (dv>>16) & 0xFF
                 b = (dv>>8) & 0xFF
                 c = (dv) & 0xFF
@@ -300,8 +332,9 @@ def process_track(name,track):
         else:
             notes = text.replace('|','').split()
             for note in notes:
-                ni = parse_note(note,note_defaults)
-                wait_before = process_note(ni,note_defaults,wait_before,ret)
+                parse_note(note,note_info)
+                wait_before = process_note(note_info,previous_note,wait_before,ret)
+                previous_note = dict(note_info) # Make a copy of the last note
             
     return ret
 
