@@ -174,7 +174,7 @@ class MIDIChannelProgramChangeEvent:
         return ret
         
     def __str__(self):        
-        return "%-7d ProgramChange  %2d %3d" %(self.delta, 45, self.value)
+        return "%-7d ProgramChange  %2d %3d" %(self.delta, self.channel, self.value)
 
 class MIDIChannelControlChangeEvent:
     """MIDI Channel Control Change Event

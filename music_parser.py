@@ -1,29 +1,6 @@
-"""
-MIT License
-
-Copyright (c) 2022 Chris Cantrell
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-"""
-
 import string
 import sys
+import logging
 
 from midi_events import MetaEvent, SystemExclusiveEvent
 from midi_events import MIDIChannelNoteEvent
@@ -35,6 +12,8 @@ from midi_events import MIDIChannelRunningStatusEvent
 #import midi_track_merge
 import midi_diss
 from midi_file import MIDIFile
+
+LOGGER = logging.getLogger(__name__)
 
 def pull_tracks(lines):
     """Pull the music tracks from the list of lines.
@@ -52,18 +31,19 @@ def pull_tracks(lines):
             tracks[nm] = current
         else:
             if current is not None:
-                current.append(line)   
-    return tracks 
+                current.append(line)  
+    print('>>>',tracks.keys())
+    return tracks
 
 def parse_note(text,info,err_text=None):
-    
+   
     # For errors
     if err_text is None:
         err_text = text
 
     # For example
     # >4.d~G#+:E#3:C#+
-    
+   
     # Separate out any secondary parallel notes
     par_notes = text.split(':')
     text = par_notes.pop(0)
@@ -91,7 +71,7 @@ def parse_note(text,info,err_text=None):
     # do not default into the next note.
     note_tie = False
     if note_left:
-        if note_left[-1] == '~':
+        if note_left[-1] == '~':            
             note_tie = True
             note_left = note_left[:-1]
 
@@ -99,14 +79,14 @@ def parse_note(text,info,err_text=None):
     # The very end can be "t" for tuplet or "d" for duplet. Dots and "td" MUST
     # follow a note length number.
     note_len = ''
-    note_dots = 0 
+    note_dots = 0
     note_plet = None
     while note_left and note_left[0] in '0123456789':
         note_len += note_left[0]
         note_left = note_left[1:]    
     if note_left and note_left[-1] in 'td':
         note_plet = note_left[-1]
-        note_left = note_left[:-1]       
+        note_left = note_left[:-1]      
     while note_left and note_left[-1]=='.':
         note_dots += 1
         note_left = note_left[:-1]
@@ -125,7 +105,7 @@ def parse_note(text,info,err_text=None):
         note_len = info['note_len']
         note_dots = info['note_dots']
         note_plet = info['note_plet']
-    
+   
     # Now for the pitch(es)
 
     note_pitches = [] # Each is a tuple: (note_name,accidental)    
@@ -136,7 +116,7 @@ def parse_note(text,info,err_text=None):
         note_right = pitch[1:]    
 
         # At the moment, we don't support key signatures or persisting accidentals
-        # through the measure. There is no need for a "natural" marking currently. 
+        # through the measure. There is no need for a "natural" marking currently.
         # There is no need for more than one sharp "#" or flat "b" marking on a note
         # currently.
         note_accidental = None
@@ -176,7 +156,7 @@ def parse_note(text,info,err_text=None):
         if note_name=='R':            
             if note_accidental:
                 raise Exception('Rests do not have accientals "'+pitch+'" in "'+err_text+'"')
-    
+   
     if len(note_pitches)>1:
         for pitch in note_pitches:
             if pitch[0]=='R':
@@ -191,21 +171,21 @@ def parse_note(text,info,err_text=None):
     info['note_tie'] = note_tie
     info['note_pitches'] = note_pitches    
 
-NOTE_VALUES = { # offsets within an octave             
+NOTE_VALUES = { # offsets within an octave            
                'C':0,
                'D':2,
                'E':4,
                'F':5,
                'G':7,
                'A':9,
-               'B':11,               
+               'B':11,              
                }
 
 def get_midi_note_number(note_name,note_accidental,note_octave):
     """Combine octave, note-name, and accidentals to get the midi note number
 
     Midi octaves go from -1 through 9. Midi note 0 is C-1. Midi note 12 is C0.
-    Midi note 120 is C9. Our input system doesn't support negative numbers, but 
+    Midi note 120 is C9. Our input system doesn't support negative numbers, but
     you can specify octave "-1" with "0-".
     """
     note_octave += 1    
@@ -218,11 +198,11 @@ def get_midi_note_number(note_name,note_accidental,note_octave):
 
 def process_note(info,previous_note,wait_before,events):
     # It is all about volume (velocity) and duration. The volume is given on
-    # the NoteOn event. The duration is the distance between NoteOn and NoteOff.   
+    # the NoteOn event. The duration is the distance between NoteOn and NoteOff.  
 
     # First, the duration (on and off)
 
-    print(':::',wait_before,'::',info)
+    LOGGER.debug(f'wait_before:{wait_before} info: {info}')
 
     bl = info['note_len']
     if info['note_plet'] == 't':
@@ -242,10 +222,10 @@ def process_note(info,previous_note,wait_before,events):
     velocity = int(info['volume']*127)
 
     # If this is a rest, we just accumulate the total time    
-    
+   
     # TODO apply staccato, etc
     if info['note_pitches'][0][0]=='R':
-        return int(note_len) + wait_before           
+        return int(note_len) + wait_before          
 
     # Number of ticks the note is on and off
     len_on = int(note_len * info['noteOnPercent'])
@@ -253,9 +233,9 @@ def process_note(info,previous_note,wait_before,events):
 
     # If the last note was tied into this one, then there was already a noteOn. No
     # need for that now. Otherwise generate noteOn events for this note.
-    
+   
     if previous_note and previous_note['note_tie']:
-        print('Last note was tied into this ... no noteOns')
+        # print('Last note was tied into this ... no noteOns')
         pass
     else:
         # All notes on
@@ -268,27 +248,29 @@ def process_note(info,previous_note,wait_before,events):
     # we did a rest (but after we turned notes on if needed)
 
     if info['note_tie']:
-        print('This note is tied into next ... just accumulate')
+        # print('This note is tied into next ... just accumulate')
         return int(note_len) + wait_before
 
     # Looks like this note is not tied to the next. We need to generate noteOff events here.
 
-    print('This note is not tied into next ... turn off the events')
-    # All notes off
+    # print('This note is not tied into next ... turn off the events')
+    # All notes off    
     for note_name,note_accidental,note_octave in info['note_pitches']:
         note = get_midi_note_number(note_name,note_accidental,note_octave)
-        events.append(MIDIChannelNoteEvent(wait_before+len_on,info['channel'],False,note,0))
+        events.append(MIDIChannelNoteEvent(wait_before+len_on,info['channel'],False,note,0))        
         len_on = 0
+        wait_before = 0
+        first = False
 
     return len_off
 
 def process_track(name,track):    
     ret = [] # List of midi events
 
-    note_info = {   
+    note_info = {  
         'channel' : 0,            # Can be changed per-track
         'tempo'   : 120,          # By default, midi is 120 beats (quarter notes) per minute
-        'volume'  : 0.50,         # 50% without accent          
+        'volume'  : 0.80,         # 80% without accent          
         'noteOnPercent' : 0.80,   # Normal on/off time of a note
         'ticksPerWhole' : 256*4,  # Plenty of resoultion with 256 ticks per beat (quarter note)
         # Length attributes can carry between notes
@@ -313,8 +295,11 @@ def process_track(name,track):
     for line in track:                
         text = line['text']
         if text.startswith(':'):
+            if text.lower().startswith(':channel'):
+                ch = int(text[9:].strip())
+                note_info['channel'] = ch
             # Special music commands
-            if text.lower().startswith(':voice'):
+            elif text.lower().startswith(':voice'):
                 prg = int(text[7:].strip())
                 evt  = MIDIChannelProgramChangeEvent(0,note_info['channel'],prg)
                 ret.append(evt)
@@ -327,6 +312,10 @@ def process_track(name,track):
                 c = (dv) & 0xFF
                 evt = MetaEvent(0,0x51,[a,b,c])
                 ret.append(evt)
+            elif text.lower().startswith(':volume'):
+                vol = int(text[8:].strip())
+                evt  = MIDIChannelControlChangeEvent(0,note_info['channel'],7,vol)
+                ret.append(evt)
             else:
                 raise Exception('Unknown "'+text+'"')
         else:
@@ -335,7 +324,7 @@ def process_track(name,track):
                 parse_note(note,note_info)
                 wait_before = process_note(note_info,previous_note,wait_before,ret)
                 previous_note = dict(note_info) # Make a copy of the last note
-            
+           
     return ret
 
 def _process(raw_lines):
@@ -352,13 +341,13 @@ def _process(raw_lines):
         i = text.find(';')
         if i>=0:
             text = text[:i]  
-        text = text.strip()         
+        text = text.strip()        
         line['text'] = text          
         if text:
-            lines.append(line)               
-    
+            lines.append(line)              
+   
     tracks = pull_tracks(lines)        
-            
+           
     ret.tracks = []    
     for name,track in tracks.items():
         track = process_track(name,track)
@@ -373,7 +362,7 @@ def process_music_file(filename):
     with open(filename) as f:
         for line in f:
             line_number+=1
-            raw_lines.append({'file':filename,'line_number':line_number,'original_text':line.strip()})           
+            raw_lines.append({'file':filename,'line_number':line_number,'original_text':line.strip()})          
     return _process(raw_lines)
 
 def process_music(text):
@@ -385,11 +374,15 @@ def process_music(text):
     return _process(raw_lines)
 
 if __name__=="__main__":
-        
+
+    # py -m music_parser input.txt output.mid -printMidi
+
+    logging.basicConfig(level='INFO')
+       
     ret = process_music_file(sys.argv[1])
 
     print("NumTracks=%d Format=%d Division=%d" % (len(ret.tracks),ret.format,ret.divis))
-    midi_diss.print_tracks(ret.tracks)        
+    if len(sys.argv)>3 and sys.argv[3]=='-printMidi':
+        midi_diss.print_tracks(ret.tracks)        
 
     ret.write_file(sys.argv[2])
-            

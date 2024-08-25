@@ -1,0 +1,25 @@
+Track 0:
+:Tempo 4=84
+:Volume 127
+
+
+1F4:Db:Ab3 | 2~Gb4:Db:Bb3 8Gb4:Db:Bb3 8~Db4 16Db 8.Eb | 2.F4:Db:Ab3 4Ab4 |
+
+1Gb4:Db:A3 | 1F4:Db:Ab3 | 2~Gb4:Db:Bb3 8Gb4:Db:Bb3 8~Db4 16Db 8.Eb |
+
+1F4:Db:Ab3 | 2Gb4:Db:A3 8Gb4:Db:Bb3 8A3 Db4 Gb | 1F:Db:Ab3 |
+
+Track 1:
+:Tempo 4=84
+4.Db2 8Db 2Db | 4.Db2 8Db 2Db | 4.Db2 8Db 2Db |
+
+4.Db2 8Db 2Db | 4.Db2 8Db 2Db | 4.Db2 8Db 2Db |
+
+4.Db2 8Db 2Db | 4.Db2 8Db 2Db | 4.Db2 8Db 2Db |
+
+Track 2:
+:Tempo 4=84
+;:Voice 66 ; Alto Sax
+;1R | 1R | 1R |
+
+;1R | 4R 16Ab4 Gb F 16~Ab 2~Ab | 8Ab 4.~Bb 8Bb 16Fb Eb 8Db 16E 16Db | 
